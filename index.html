@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockFlow</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <section id="loginScreen" class="screen">
+      <div class="login-card">
+        <div class="brand">Stock<span>Flow</span></div>
+        <p class="subtitle">Voorraad & bestellen</p>
+        <div id="setupNotice" class="notice hidden"></div>
+        <form id="loginForm">
+          <label>E-mail</label>
+          <input id="email" type="email" autocomplete="email" required placeholder="jouw@email.nl">
+          <label>Wachtwoord</label>
+          <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+          <button class="primary full" type="submit">Inloggen</button>
+          <p id="loginError" class="error"></p>
+        </form>
+        <form id="setupForm" class="hidden">
+          <h2>Eerste installatie</h2>
+          <p class="muted">Maak één account aan. Daarna gebruikt iedereen ditzelfde account.</p>
+          <label>E-mail</label>
+          <input id="setupEmail" type="email" required>
+          <label>Wachtwoord</label>
+          <input id="setupPassword" type="password" minlength="6" required>
+          <label>Wachtwoord opnieuw</label>
+          <input id="setupPassword2" type="password" minlength="6" required>
+          <button class="primary full" type="submit">Account instellen</button>
+          <p id="setupError" class="error"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="mainScreen" class="hidden">
+      <header class="topbar">
+        <div class="brand small">Stock<span>Flow</span></div>
+        <nav>
+          <button class="tab active" data-tab="orders">Bestellen</button>
+          <button class="tab" data-tab="stock">Voorraad</button>
+          <button class="tab" data-tab="settings">Instellingen</button>
+        </nav>
+        <button id="logoutBtn" class="ghost">Uitloggen</button>
+      </header>
+
+      <main>
+        <div id="orders" class="tab-panel active"></div>
+        <div id="stock" class="tab-panel"></div>
+        <div id="settings" class="tab-panel"></div>
+      </main>
+    </section>
+  </div>
+
+  <div id="toast"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
