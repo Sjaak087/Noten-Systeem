@@ -67,9 +67,14 @@ $("logoutBtn").addEventListener("click",()=>signOut(auth));
 function friendlyAuthError(e){
   const c=e?.code||"";
   if(c.includes("invalid-credential")||c.includes("wrong-password")) return "E-mail of wachtwoord klopt niet.";
+  if(c.includes("user-not-found")) return "Dit e-mailadres bestaat nog niet.";
+  if(c.includes("operation-not-allowed")) return "Email/wachtwoord-login staat nog niet aan in Firebase Authentication.";
+  if(c.includes("too-many-requests")) return "Te veel inlogpogingen. Probeer later opnieuw.";
+  if(c.includes("network-request-failed")) return "Geen verbinding met Firebase. Controleer je internetverbinding.";
   if(c.includes("email-already-in-use")) return "Dit e-mailadres bestaat al.";
   if(c.includes("weak-password")) return "Gebruik minimaal 6 tekens voor het wachtwoord.";
-  return "Er ging iets mis. Probeer opnieuw.";
+  if(c.includes("invalid-email")) return "Vul een geldig e-mailadres in.";
+  return `Firebase-fout: ${c || "onbekend"}`;
 }
 
 document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
