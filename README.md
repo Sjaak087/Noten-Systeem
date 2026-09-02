@@ -22,15 +22,25 @@ Voor het inloggen gebruikt de website **Firebase Authentication (Email/Password)
 4. Ga naar Realtime Database en zorg dat de database bestaat.
 5. Publiceer de bestanden op GitHub Pages.
 
-### Aanbevolen Realtime Database Rules
-De applicatie is bedoeld voor één gedeeld account. Gebruik voor een echte productieomgeving bij voorkeur strengere regels. Een eenvoudige startconfiguratie is:
+### Realtime Database Rules
+Gebruik het meegeleverde bestand `database.rules.json` in de Firebase Realtime Database Rules-editor. De `appSetup`-status moet vóór het inloggen leesbaar zijn; producten blijven alleen voor ingelogde gebruikers toegankelijk. Firebase Security Rules bepalen welke reads en writes worden toegestaan.
 
+De regels uit `database.rules.json` zijn:
+
+```json
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    "appSetup": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "products": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
   }
 }
+```
 
 ## GitHub Pages
 Upload `index.html`, `style.css` en `app.js` naar een repository. Zet daarna GitHub Pages aan via Settings → Pages → Deploy from a branch.
