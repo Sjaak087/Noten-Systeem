@@ -1,8 +1,10 @@
 # StockFlow — Firebase voorraadwebsite
 
-## Inhoud
-- Inloggen met één gedeeld e-mail/wachtwoord.
-- Eerste keer: account aanmaken via de website.
+## Wat zit erin?
+- Eén gedeeld e-mailadres en wachtwoord.
+- Eerste keer: account instellen.
+- E-mailadres en wachtwoord worden opgeslagen in Firebase Realtime Database onder `credentials`.
+- Daarna kan iedereen met dezelfde gegevens inloggen.
 - Producten maken met **Gram** of **Aantal**.
 - Voorraad live opgeslagen in Firebase Realtime Database.
 - Bestellen trekt automatisch de bestelde hoeveelheid van de voorraad af.
@@ -11,38 +13,30 @@
 - Moderne responsive donkere UI.
 
 ## Firebase
-De meegegeven Firebase-configuratie staat al in `app.js`.
+De volledige webconfig staat in `firebase-config.js`. De website gebruikt alleen Firebase App + Realtime Database; Firebase Authentication is niet nodig voor deze login.
 
-Voor het inloggen gebruikt de website **Firebase Authentication (Email/Password)**. Het wachtwoord wordt bewust niet als leesbare tekst in Realtime Database opgeslagen; Firebase Authentication beheert het wachtwoord veilig.
+De Firebase-config bevat de normale webapp-configuratie. Firebase beschrijft deze waarden als project/app-identifiers; de daadwerkelijke beveiliging van Realtime Database wordt geregeld met de database Security Rules. Zie de officiële Firebase-documentatie voor de configuratie en Realtime Database. 
 
-## Firebase instellen
-1. Open Firebase Console voor project `website-e9a77`.
-2. Ga naar Authentication → Sign-in method.
-3. Zet **Email/Password** aan.
-4. Ga naar Realtime Database en zorg dat de database bestaat.
-5. Publiceer de bestanden op GitHub Pages.
+## Belangrijk over de login
+Deze versie doet **geen Firebase Authentication**.
 
-### Realtime Database Rules
-Gebruik het meegeleverde bestand `database.rules.json` in de Firebase Realtime Database Rules-editor. De `appSetup`-status moet vóór het inloggen leesbaar zijn; producten blijven alleen voor ingelogde gebruikers toegankelijk. Firebase Security Rules bepalen welke reads en writes worden toegestaan.
+De eerste gebruiker vult een e-mail en wachtwoord in. De website slaat dit op als:
 
-De regels uit `database.rules.json` zijn:
+`credentials/email`
+`credentials/password`
 
-```json
-{
-  "rules": {
-    "appSetup": {
-      ".read": true,
-      ".write": "auth != null"
-    },
-    "products": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    }
-  }
-}
-```
+Daarna vergelijkt de website de ingevoerde gegevens met deze waarden in de database.
+
+**Let op:** dit betekent dat het wachtwoord als gewone tekst in de database staat. Gebruik daarom geen belangrijk persoonlijk wachtwoord. Als je database openbaar leesbaar is, kunnen anderen de inloggegevens ook lezen.
+
+## Firebase Realtime Database instellen
+Er zit bewust **geen `database.rules.json`** in deze ZIP.
+
+Je moet in Firebase Console bij **Realtime Database → Rules** zelf regels instellen die passen bij deze simpele database-login. De webclient kan alleen lezen/schrijven als de Security Rules dat toestaan. Voor snel testen kun je de tijdelijke testmodus van Firebase gebruiken, maar Firebase waarschuwt dat daarmee iedereen je database kan lezen en overschrijven; voor een echte website moet je de regels later beveiligen.
 
 ## GitHub Pages
-Upload `index.html`, `style.css` en `app.js` naar een repository. Zet daarna GitHub Pages aan via Settings → Pages → Deploy from a branch.
-
-De website is volledig statisch en heeft dus geen eigen server nodig.
+1. Upload alle bestanden naar je GitHub-repository.
+2. Ga naar **Settings → Pages**.
+3. Kies **Deploy from a branch**.
+4. Selecteer je branch en map.
+5. Open de GitHub Pages-link.

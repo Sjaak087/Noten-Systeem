@@ -15,7 +15,7 @@
         <div id="setupNotice" class="notice hidden"></div>
         <form id="loginForm">
           <label>E-mail</label>
-          <input id="email" type="email" autocomplete="email" required placeholder="jouw@email.nl">
+          <input id="email" type="email" autocomplete="username" required placeholder="jouw@email.nl">
           <label>Wachtwoord</label>
           <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
           <button class="primary full" type="submit">Inloggen</button>
@@ -23,7 +23,7 @@
         </form>
         <form id="setupForm" class="hidden">
           <h2>Eerste installatie</h2>
-          <p class="muted">Maak één account aan. Daarna gebruikt iedereen ditzelfde account.</p>
+          <p class="muted">Maak één account aan. Daarna gebruikt iedereen ditzelfde account. De gegevens worden in Firebase Realtime Database opgeslagen.</p>
           <label>E-mail</label>
           <input id="setupEmail" type="email" required>
           <label>Wachtwoord</label>

@@ -1,31 +1,17 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, signOut
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
   getDatabase, ref, get, set, update, onValue, runTransaction
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyARcchN-X8stS7MoD_Vo2uky9gULbaOKsQ",
-  authDomain: "website-e9a77.firebaseapp.com",
-  databaseURL: "https://website-e9a77-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "website-e9a77",
-  storageBucket: "website-e9a77.firebasestorage.app",
-  messagingSenderId: "1067889683631",
-  appId: "1:1067889683631:web:1bb1c652719a93a66df85a",
-  measurementId: "G-GTMM66S7FB"
-};
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+import { firebaseConfig } from "./firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getDatabase(app);
 
 const $ = id => document.getElementById(id);
 const loginScreen = $("loginScreen"), mainScreen = $("mainScreen");
 let products = {};
 let stopProductsListener = null;
+let loggedIn = false;
 
 function toast(message){
   const el=$("toast"); el.textContent=message; el.classList.add("show");
@@ -35,46 +21,98 @@ function escapeHtml(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","
 function unitLabel(p){return p.unit==="grams"?"gram":"aantal";}
 function amountLabel(p,v){return `${Number(v||0).toLocaleString("nl-NL")} ${unitLabel(p)}`;}
 
+async function loadCredentials(){
+  const snap = await get(ref(db,"credentials"));
+  return snap.exists() ? snap.val() : null;
+}
+
 async function checkSetup(){
   try{
-    const snap=await get(ref(db,"appSetup"));
-    if(!snap.exists() || snap.val()?.configured !== true){
+    const credentials = await loadCredentials();
+    if(!credentials || credentials.configured !== true){
       $("setupNotice").classList.remove("hidden");
       $("setupNotice").textContent="Dit is de eerste keer. Maak hieronder het vaste account aan.";
-      $("loginForm").classList.add("hidden"); $("setupForm").classList.remove("hidden");
+      $("loginForm").classList.add("hidden");
+      $("setupForm").classList.remove("hidden");
+    }else{
+      $("setupNotice").classList.add("hidden");
+      $("loginForm").classList.remove("hidden");
+      $("setupForm").classList.add("hidden");
     }
-  }catch(e){ $("loginError").textContent="Kan Firebase niet bereiken. Controleer je database-regels."; }
+  }catch(e){
+    $("loginError").textContent="Kan Firebase niet bereiken. Controleer of je Realtime Database toegankelijk is.";
+  }
 }
 
 $("setupForm").addEventListener("submit",async e=>{
-  e.preventDefault(); $("setupError").textContent="";
+  e.preventDefault();
+  $("setupError").textContent="";
   const email=$("setupEmail").value.trim(), p1=$("setupPassword").value, p2=$("setupPassword2").value;
+  if(!email || !email.includes("@")){ $("setupError").textContent="Vul een geldig e-mailadres in."; return; }
+  if(p1.length < 1){ $("setupError").textContent="Vul een wachtwoord in."; return; }
   if(p1!==p2){$("setupError").textContent="De wachtwoorden zijn niet hetzelfde.";return;}
   try{
-    const cred=await createUserWithEmailAndPassword(auth,email,p1);
-    await set(ref(db,"appSetup"),{configured:true,email,createdAt:Date.now()});
+    const existing = await loadCredentials();
+    if(existing?.configured === true){
+      $("setupError").textContent="Er is al een account ingesteld. Log daarmee in.";
+      await checkSetup();
+      return;
+    }
+    await set(ref(db,"credentials"),{
+      configured:true,
+      email,
+      password:p1,
+      createdAt:Date.now()
+    });
+    $("setupForm").reset();
+    await checkSetup();
     toast("Account aangemaakt.");
-  }catch(err){$("setupError").textContent=friendlyAuthError(err);}
+  }catch(err){
+    $("setupError").textContent="Account opslaan mislukt. Controleer je Firebase Realtime Database.";
+  }
 });
 
 $("loginForm").addEventListener("submit",async e=>{
-  e.preventDefault(); $("loginError").textContent="";
-  try{await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value);}
-  catch(err){$("loginError").textContent=friendlyAuthError(err);}
+  e.preventDefault();
+  $("loginError").textContent="";
+  try{
+    const credentials = await loadCredentials();
+    if(!credentials || credentials.configured !== true){
+      await checkSetup();
+      $("loginError").textContent="Er is nog geen account ingesteld.";
+      return;
+    }
+    const email=$("email").value.trim();
+    const password=$("password").value;
+    if(email === credentials.email && password === credentials.password){
+      enterApp();
+    }else{
+      $("loginError").textContent="E-mail of wachtwoord klopt niet.";
+    }
+  }catch(err){
+    $("loginError").textContent="Inloggen mislukt. Controleer je Firebase Realtime Database.";
+  }
 });
-$("logoutBtn").addEventListener("click",()=>signOut(auth));
 
-function friendlyAuthError(e){
-  const c=e?.code||"";
-  if(c.includes("invalid-credential")||c.includes("wrong-password")) return "E-mail of wachtwoord klopt niet.";
-  if(c.includes("user-not-found")) return "Dit e-mailadres bestaat nog niet.";
-  if(c.includes("operation-not-allowed")) return "Email/wachtwoord-login staat nog niet aan in Firebase Authentication.";
-  if(c.includes("too-many-requests")) return "Te veel inlogpogingen. Probeer later opnieuw.";
-  if(c.includes("network-request-failed")) return "Geen verbinding met Firebase. Controleer je internetverbinding.";
-  if(c.includes("email-already-in-use")) return "Dit e-mailadres bestaat al.";
-  if(c.includes("weak-password")) return "Gebruik minimaal 6 tekens voor het wachtwoord.";
-  if(c.includes("invalid-email")) return "Vul een geldig e-mailadres in.";
-  return `Firebase-fout: ${c || "onbekend"}`;
+$("logoutBtn").addEventListener("click",()=>{
+  loggedIn=false;
+  if(stopProductsListener){stopProductsListener();stopProductsListener=null;}
+  mainScreen.classList.add("hidden");
+  loginScreen.classList.remove("hidden");
+  $("password").value="";
+  checkSetup();
+});
+
+function enterApp(){
+  loggedIn=true;
+  loginScreen.classList.add("hidden");
+  mainScreen.classList.remove("hidden");
+  if(stopProductsListener) stopProductsListener();
+  stopProductsListener=onValue(ref(db,"products"),snap=>{
+    products=snap.val()||{};
+    renderAll();
+  },()=>toast("Voorraad kon niet worden geladen."));
+  renderAll();
 }
 
 document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
@@ -84,18 +122,7 @@ document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>
   renderAll();
 }));
 
-onAuthStateChanged(auth,user=>{
-  if(user){
-    loginScreen.classList.add("hidden"); mainScreen.classList.remove("hidden");
-    if(stopProductsListener) stopProductsListener();
-    stopProductsListener=onValue(ref(db,"products"),snap=>{products=snap.val()||{};renderAll();});
-  }else{
-    mainScreen.classList.add("hidden"); loginScreen.classList.remove("hidden");
-    checkSetup();
-  }
-});
-
-function renderAll(){renderOrders();renderStock();renderSettings();}
+function renderAll(){if(!loggedIn)return;renderOrders();renderStock();renderSettings();}
 
 function renderOrders(){
   const el=$("orders"), list=Object.entries(products);
@@ -111,7 +138,8 @@ function renderOrders(){
 }
 
 window.placeOrder=async id=>{
-  const p=products[id], input=$(`order-${id}`); let amount=Number(input.value);
+  if(!loggedIn)return;
+  const p=products[id], input=$(`order-${id}`); let amount=Number(input?.value);
   if(!amount||amount<=0){toast("Vul een geldig aantal in.");return;}
   if(p.unit==="count") amount=Math.floor(amount);
   const productRef=ref(db,`products/${id}/stock`);
@@ -123,7 +151,7 @@ window.placeOrder=async id=>{
     });
     if(result.committed){toast(`${amountLabel(p,amount)} besteld.`);}
     else toast("Niet genoeg voorraad.");
-  }catch(e){toast("Bestellen mislukt.");}
+  }catch(e){toast("Bestellen mislukt. Controleer je database-regels.");}
 };
 
 function renderStock(){
@@ -169,26 +197,37 @@ function renderSettings(){
     const name=$("newName").value.trim(), unit=$("newUnit").value, stock=Number($("newStock").value);
     if(!name||stock<0)return;
     const id="p_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
-    await set(ref(db,`products/${id}`),{name,unit,stock,stockMax:stock,createdAt:Date.now()});
-    e.target.reset();toast("Product toegevoegd.");
+    try{
+      await set(ref(db,`products/${id}`),{name,unit,stock,stockMax:stock,createdAt:Date.now()});
+      e.target.reset();toast("Product toegevoegd.");
+    }catch(err){toast("Product toevoegen mislukt.");}
   });
 }
 
 window.saveProduct=async id=>{
+  if(!loggedIn)return;
   const p=products[id]; if(!p)return;
   let stock=Number($(`stock-${id}`).value), add=Number($(`add-${id}`).value||0);
-  if(p.unit==="count"){stock=Math.floor(stock);add=Math.floor(add);}
+  const unit=$(`unit-${id}`).value;
+  if(unit==="count"){stock=Math.floor(stock);add=Math.floor(add);}
   if(stock<0||add<0){toast("Gebruik geen negatieve voorraad.");return;}
   const finalStock=stock+add;
-  await update(ref(db,`products/${id}`),{
-    name:$(`name-${id}`).value.trim()||p.name,
-    unit:$(`unit-${id}`).value,
-    stock:finalStock,
-    stockMax:Math.max(Number(p.stockMax||0),finalStock)
-  });
-  toast("Product opgeslagen.");
+  try{
+    await update(ref(db,`products/${id}`),{
+      name:$(`name-${id}`).value.trim()||p.name,
+      unit,
+      stock:finalStock,
+      stockMax:Math.max(Number(p.stockMax||0),finalStock)
+    });
+    toast("Product opgeslagen.");
+  }catch(err){toast("Product opslaan mislukt.");}
 };
+
 window.deleteProduct=async id=>{
+  if(!loggedIn)return;
   if(!confirm("Dit product verwijderen?"))return;
-  await set(ref(db,`products/${id}`),null);toast("Product verwijderd.");
+  try{await set(ref(db,`products/${id}`),null);toast("Product verwijderd.");}
+  catch(err){toast("Product verwijderen mislukt.");}
 };
+
+checkSetup();
