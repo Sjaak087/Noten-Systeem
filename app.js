@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
-  getDatabase, ref, get, set, update, onValue, runTransaction
+  getDatabase, ref, get, set, update, onValue, runTransaction, push
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -20,6 +20,8 @@ function toast(message){
 function escapeHtml(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
 function unitLabel(p){return p.unit==="grams"?"gram":"aantal";}
 function amountLabel(p,v){return `${Number(v||0).toLocaleString("nl-NL")} ${unitLabel(p)}`;}
+function money(v){return Number(v||0).toLocaleString("nl-NL",{style:"currency",currency:"EUR"});}
+function priceLabel(p){return `${money(p.price)} / ${unitLabel(p)}`;}
 
 async function loadCredentials(){
   const snap = await get(ref(db,"credentials"));
@@ -122,7 +124,7 @@ document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>
   renderAll();
 }));
 
-function renderAll(){if(!loggedIn)return;renderOrders();renderStock();renderSettings();}
+function renderAll(){if(!loggedIn)return;renderOrders();renderStock();renderSettings();renderHistory();}
 
 function renderOrders(){
   const el=$("orders"), list=Object.entries(products);
@@ -149,8 +151,24 @@ window.placeOrder=async id=>{
       if(current<amount)return;
       return current-amount;
     });
-    if(result.committed){toast(`${amountLabel(p,amount)} besteld.`);}
-    else toast("Niet genoeg voorraad.");
+    if(result.committed){
+      try{
+        const price=Number(p.price||0);
+        const historyRef=push(ref(db,"history"));
+        await set(historyRef,{
+          productId:id,
+          productName:p.name,
+          unit:p.unit,
+          amount,
+          price,
+          total:amount*price,
+          soldAt:Date.now()
+        });
+        toast(`${amountLabel(p,amount)} besteld.`);
+      }catch(historyError){
+        toast("Bestelling geplaatst, maar historie opslaan mislukt.");
+      }
+    } else toast("Niet genoeg voorraad.");
   }catch(e){toast("Bestellen mislukt. Controleer je database-regels.");}
 };
 
@@ -176,6 +194,7 @@ function renderSettings(){
       <div><label>Naam</label><input id="newName" required placeholder="Bijv. Koffie"></div>
       <div><label>Eenheid</label><select id="newUnit"><option value="grams">Gram</option><option value="count">Aantal</option></select></div>
       <div><label>Startvoorraad</label><input id="newStock" type="number" min="0" step=".01" required placeholder="0"></div>
+      <div><label>Prijs (per gram / per stuk)</label><input id="newPrice" type="number" min="0" step="0.01" required placeholder="0,00"></div>
       <button class="primary" type="submit">+ Product</button>
     </form>
   </div>
@@ -186,6 +205,7 @@ function renderSettings(){
       <div><label>Naam</label><input id="name-${id}" value="${escapeHtml(p.name)}"></div>
       <div><label>Eenheid</label><select id="unit-${id}"><option value="grams" ${p.unit==="grams"?"selected":""}>Gram</option><option value="count" ${p.unit==="count"?"selected":""}>Aantal</option></select></div>
       <div><label>Voorraad nu</label><input id="stock-${id}" type="number" min="0" step=".01" value="${Number(p.stock||0)}"></div>
+      <div><label>Prijs per ${unitLabel(p)}</label><input id="price-${id}" type="number" min="0" step="0.01" value="${Number(p.price||0)}"></div>
       <div><label>Toevoegen</label><input id="add-${id}" type="number" min="0" step=".01" placeholder="0"></div>
       <button class="primary" onclick="window.saveProduct('${id}')">Opslaan</button>
     </div>
@@ -194,11 +214,11 @@ function renderSettings(){
 
   $("addProduct").addEventListener("submit",async e=>{
     e.preventDefault();
-    const name=$("newName").value.trim(), unit=$("newUnit").value, stock=Number($("newStock").value);
-    if(!name||stock<0)return;
+    const name=$("newName").value.trim(), unit=$("newUnit").value, stock=Number($("newStock").value), price=Number($("newPrice").value);
+    if(!name||stock<0||price<0)return;
     const id="p_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
     try{
-      await set(ref(db,`products/${id}`),{name,unit,stock,stockMax:stock,createdAt:Date.now()});
+      await set(ref(db,`products/${id}`),{name,unit,stock,stockMax:stock,price,createdAt:Date.now()});
       e.target.reset();toast("Product toegevoegd.");
     }catch(err){toast("Product toevoegen mislukt.");}
   });
@@ -207,21 +227,45 @@ function renderSettings(){
 window.saveProduct=async id=>{
   if(!loggedIn)return;
   const p=products[id]; if(!p)return;
-  let stock=Number($(`stock-${id}`).value), add=Number($(`add-${id}`).value||0);
+  let stock=Number($(`stock-${id}`).value), add=Number($(`add-${id}`).value||0), price=Number($(`price-${id}`).value||0);
   const unit=$(`unit-${id}`).value;
   if(unit==="count"){stock=Math.floor(stock);add=Math.floor(add);}
-  if(stock<0||add<0){toast("Gebruik geen negatieve voorraad.");return;}
+  if(stock<0||add<0||price<0){toast("Gebruik geen negatieve waarden.");return;}
   const finalStock=stock+add;
   try{
     await update(ref(db,`products/${id}`),{
       name:$(`name-${id}`).value.trim()||p.name,
       unit,
+      price,
       stock:finalStock,
       stockMax:Math.max(Number(p.stockMax||0),finalStock)
     });
     toast("Product opgeslagen.");
   }catch(err){toast("Product opslaan mislukt.");}
 };
+
+function renderHistory(){
+  const el=$("history");
+  if(!el)return;
+  onValue(ref(db,"history"),snap=>{
+    const entries=Object.values(snap.val()||{}).sort((a,b)=>(b.soldAt||0)-(a.soldAt||0));
+    const totalRevenue=entries.reduce((sum,e)=>sum+Number(e.total||0),0);
+    const soldByProduct={};
+    entries.forEach(e=>{
+      const key=e.productId||e.productName||"onbekend";
+      if(!soldByProduct[key]) soldByProduct[key]={name:e.productName||"Onbekend product",unit:e.unit||"count",amount:0,revenue:0};
+      soldByProduct[key].amount+=Number(e.amount||0);
+      soldByProduct[key].revenue+=Number(e.total||0);
+    });
+    el.innerHTML=`<div class="page-head"><div><h1>Historie</h1><p class="muted">Alle verkochte producten en de totale omzet.</p></div></div>
+      <div class="history-list">${entries.length?entries.map(e=>`<article class="card history-item">
+        <div><div class="product-name">${escapeHtml(e.productName||"Onbekend product")}</div><div class="muted">${amountLabel(e,e.amount)} × ${money(e.price||0)} per ${unitLabel(e)}</div></div>
+        <strong>${money(e.total||0)}</strong>
+        <small class="muted">${e.soldAt?new Date(e.soldAt).toLocaleString("nl-NL"):"-"}</small>
+      </article>`).join(""):`<div class="card empty">Nog geen verkochte producten.</div>`}</div>
+      <div class="card history-total"><h2>Totaal</h2><div class="revenue">${money(totalRevenue)}</div><p class="muted">Totale omzet</p><div class="divider"></div><h3>Aantal verkocht per product</h3><div class="summary-grid">${Object.values(soldByProduct).length?Object.values(soldByProduct).map(x=>`<div class="summary-item"><span>${escapeHtml(x.name)}</span><strong>${Number(x.amount).toLocaleString("nl-NL")} ${unitLabel(x)}</strong><small>${money(x.revenue)}</small></div>`).join(""):`<div class="muted">Nog geen verkopen.</div>`}</div></div>`;
+  }).catch(()=>{el.innerHTML=`<div class="card empty">Historie kon niet worden geladen.</div>`;});
+}
 
 window.deleteProduct=async id=>{
   if(!loggedIn)return;
