@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StockFlow</title>
+  <title>Noten Verkoop</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
     <section id="loginScreen" class="screen">
       <div class="login-card">
-        <div class="brand">Stock<span>Flow</span></div>
+        <div class="brand">Noten <span>Verkoop</span></div>
         <p class="subtitle">Voorraad & bestellen</p>
         <div id="setupNotice" class="notice hidden"></div>
         <form id="loginForm">
@@ -38,11 +38,12 @@
 
     <section id="mainScreen" class="hidden">
       <header class="topbar">
-        <div class="brand small">Stock<span>Flow</span></div>
+        <div class="brand small">Noten <span>Verkoop</span></div>
         <nav>
           <button class="tab active" data-tab="orders">Bestellen</button>
           <button class="tab" data-tab="stock">Voorraad</button>
           <button class="tab" data-tab="settings">Instellingen</button>
+          <button class="tab" data-tab="history">Historie</button>
         </nav>
         <button id="logoutBtn" class="ghost">Uitloggen</button>
       </header>
@@ -51,6 +52,7 @@
         <div id="orders" class="tab-panel active"></div>
         <div id="stock" class="tab-panel"></div>
         <div id="settings" class="tab-panel"></div>
+        <div id="history" class="tab-panel"></div>
       </main>
     </section>
   </div>
