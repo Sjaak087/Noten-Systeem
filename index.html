@@ -59,6 +59,9 @@
 
   <div id="toast"></div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module">
+    // Laad altijd de nieuwste app.js-versie en voorkom browsercache.
+    import(`./app.js?v=${Date.now()}`);
+  </script>
 </body>
 </html>

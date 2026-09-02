@@ -48,9 +48,5 @@ Je moet in Firebase Console bij **Realtime Database → Rules** zelf regels inst
 - Historie toont verkochte hoeveelheden, omzet per verkoop, totale omzet en verkochte hoeveelheid per product.
 
 
-## Aanpassingen in deze versie
-- De navigatietabs passen zich automatisch aan en scrollen op kleine schermen.
-- Instellingen gebruikt een responsive grid: velden worden automatisch over meerdere rijen verdeeld zodat niets buiten het vak valt.
-- Productprijzen zijn instelbaar per gram of per stuk.
-- Elke verkoop wordt met product, hoeveelheid, eenheid, prijs, omzet en datum/tijd in `history` opgeslagen.
-- Historie wordt live bijgewerkt en toont alle verkopen, totale omzet en de verkochte hoeveelheid/omzet per product.
+### Automatisch vernieuwen
+De website vernieuwt zichzelf automatisch ongeveer iedere minuut. Er is hiervoor geen `version.json` of extra updatebestand nodig. De nieuwste `app.js` wordt bij het vernieuwen met een unieke cachebuster geladen.
